@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HD Image Generator — Upscale &amp; Enhance Photos in Your Browser</title>
+<meta name="description" content="Turn ordinary photos into crisp HD images: high-quality upscaling, sharpening, denoise and colour correction — 100% in your browser. No uploads, no sign-up.">
+<style>
+  :root{
+    --emerald:#103E32; --emerald-2:#0B4F3A; --lime:#DCF5B5; --lime-strong:#C9EC8F;
+    --paper:#F7F8F2; --ink:#17352B; --muted:#5A6E64; --line:#DCE5D8;
+    --danger:#B3261E; --danger-bg:#FDECEA; --ok:#146C43; --ok-bg:#E6F4EA;
+    --radius:14px; --shadow:0 10px 30px rgba(16,62,50,.12);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:"Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;
+    background:var(--paper); color:var(--ink); line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:20px 16px 40px}
+  header.hero{
+    background:linear-gradient(135deg,var(--emerald) 0%,var(--emerald-2) 100%);
+    color:#fff;border-radius:var(--radius);padding:28px 26px;box-shadow:var(--shadow);
+  }
+  header.hero h1{margin:0 0 6px;font-size:clamp(26px,4.5vw,38px);letter-spacing:.2px}
+  header.hero h1 .accent{color:var(--lime)}
+  header.hero p{margin:0;max-width:640px;color:#EAF3E4;font-size:clamp(14px,2.4vw,16px)}
+  .badge{
+    display:inline-block;background:var(--lime);color:var(--emerald);font-weight:700;
+    font-size:12px;padding:3px 10px;border-radius:999px;margin-bottom:12px;letter-spacing:.4px;
+  }
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
+  @media (max-width:820px){.grid{grid-template-columns:1fr}}
+  .card{
+    background:#fff;border:1px solid var(--line);border-radius:var(--radius);
+    padding:18px;box-shadow:var(--shadow);
+  }
+  .card h2{margin:0 0 10px;font-size:17px;color:var(--emerald)}
+  .card h3{margin:16px 0 8px;font-size:14px;color:var(--emerald);text-transform:uppercase;letter-spacing:.6px}
+  /* Drop zone */
+  .drop{
+    border:2px dashed #9DB8A6;border-radius:var(--radius);background:#FBFCF8;
+    padding:26px 16px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;
+  }
+  .drop:hover,.drop:focus-visible{border-color:var(--emerald-2);outline:none}
+  .drop.dragover{border-color:var(--emerald);background:var(--lime)}
+  .drop .big{font-size:17px;font-weight:700;color:var(--emerald)}
+  .drop .small{font-size:13px;color:var(--muted);margin-top:4px}
+  .drop input{display:none}
+  .meta{font-size:13px;color:var(--muted);margin-top:10px;word-break:break-all}
+  .meta strong{color:var(--ink)}
+  .preview{
+    margin-top:12px;border:1px solid var(--line);border-radius:10px;overflow:hidden;
+    background:repeating-conic-gradient(#EEF1E8 0% 25%, #fff 0% 50%) 0 0/18px 18px;
+    display:none;text-align:center;
+  }
+  .preview img{max-width:100%;max-height:340px;display:block;margin:0 auto}
+  /* Messages */
+  .msg{display:none;border-radius:10px;padding:10px 12px;font-size:14px;margin-top:12px}
+  .msg.error{display:block;background:var(--danger-bg);color:var(--danger);border:1px solid #F3C2BE}
+  .msg.ok{display:block;background:var(--ok-bg);color:var(--ok);border:1px solid #BFE3CC}
+  .msg.note{display:block;background:#FFF7E0;color:#7A5B00;border:1px solid #F0DFA6}
+  /* Controls */
+  .seg{display:flex;flex-wrap:wrap;gap:8px}
+  .seg button{
+    flex:1 1 70px;padding:9px 6px;border-radius:10px;border:1.5px solid var(--line);
+    background:#fff;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;
+  }
+  .seg button[aria-pressed="true"]{background:var(--emerald);border-color:var(--emerald);color:#fff}
+  .row{margin-top:12px}
+  .row label{display:flex;justify-content:space-between;font-size:14px;font-weight:600;margin-bottom:4px}
+  .row label output{color:var(--emerald-2);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;accent-color:var(--emerald);height:28px}
+  .check{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600;margin-top:14px;cursor:pointer}
+  .check input{width:18px;height:18px;accent-color:var(--emerald)}
+  select{
+    width:100%;padding:9px;border-radius:10px;border:1.5px solid var(--line);
+    font-size:14px;background:#fff;color:var(--ink);
+  }
+  .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+  .btn{
+    appearance:none;border:none;cursor:pointer;border-radius:10px;padding:12px 18px;
+    font-size:15px;font-weight:700;text-decoration:none;display:inline-block;text-align:center;
+  }
+  .btn.primary{background:var(--emerald);color:#fff;flex:1 1 180px}
+  .btn.primary:hover{background:var(--emerald-2)}
+  .btn.primary:disabled{background:#9DB8A6;cursor:not-allowed}
+  .btn.ghost{background:#fff;color:var(--emerald);border:1.5px solid var(--emerald)}
+  .btn.lime{background:var(--lime);color:var(--emerald);flex:1 1 180px}
+  .btn.lime:hover{background:var(--lime-strong)}
+  .result-info{font-size:13.5px;color:var(--muted);margin-top:10px}
+  .result-info strong{color:var(--ink)}
+  .honest{
+    margin-top:18px;background:#fff;border:1px solid var(--line);border-left:5px solid var(--emerald);
+    border-radius:10px;padding:14px 16px;font-size:14px;color:var(--ink);
+  }
+  .honest strong{color:var(--emerald)}
+  footer{margin-top:22px;text-align:center;font-size:13px;color:var(--muted)}
+  .privacy{margin-top:8px;font-size:13px;color:var(--muted);text-align:center}
+  .spinner{
+    display:inline-block;width:15px;height:15px;border:2.5px solid rgba(255,255,255,.4);
+    border-top-color:#fff;border-radius:50%;vertical-align:-2px;margin-right:8px;
+    animation:spin .7s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <span class="badge">ASIF SAAS STUDIO</span>
+    <h1>HD Image <span class="accent">Generator</span></h1>
+    <p>Turn ordinary photos into crisp, high-definition images — high-quality upscaling, sharpening, denoise and colour correction, all inside your browser.</p>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT: input -->
+    <section class="card" aria-label="Choose an image">
+      <h2>1 · Choose your image</h2>
+      <div class="drop" id="drop" tabindex="0" role="button" aria-label="Upload an image">
+        <div class="big">📷 Drop an image here, or tap to browse</div>
+        <div class="small">PNG, JPEG, WebP, BMP or GIF (first frame) · up to 25 MB</div>
+        <input type="file" id="file" accept="image/png,image/jpeg,image/webp,image/bmp,image/gif">
+      </div>
+      <div class="msg" id="inMsg" role="alert"></div>
+      <div class="meta" id="inMeta" aria-live="polite"></div>
+      <div class="preview" id="inPreview"><img id="inImg" alt="Your original image"></div>
+
+      <h3>How it works</h3>
+      <p style="font-size:14px;color:var(--muted);margin:0">
+        Your photo is enlarged with high-quality resampling, gently denoised, colour-corrected and
+        sharpened — then handed back to you as a download. Everything happens on your device.
+      </p>
+    </section>
+
+    <!-- RIGHT: controls + result -->
+    <section class="card" aria-label="Enhancement settings and result">
+      <h2>2 · Enhancement settings</h2>
+
+      <div class="row" style="margin-top:2px">
+        <label>Upscale <output id="scaleOut">2× HD</output></label>
+        <div class="seg" id="scaleSeg" role="group" aria-label="Upscale factor">
+          <button type="button" data-scale="1">1× Enhance</button>
+          <button type="button" data-scale="2" aria-pressed="true">2× HD</button>
+          <button type="button" data-scale="3">3×</button>
+          <button type="button" data-scale="4">4× Ultra</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <label for="sharpen">Sharpen <output id="sharpenOut">45</output></label>
+        <input type="range" id="sharpen" min="0" max="100" value="45">
+      </div>
+      <div class="row">
+        <label for="contrast">Contrast <output id="contrastOut">100</output></label>
+        <input type="range" id="contrast" min="50" max="150" value="100">
+      </div>
+      <div class="row">
+        <label for="saturation">Colour saturation <output id="saturationOut">105</output></label>
+        <input type="range" id="saturation" min="0" max="200" value="105">
+      </div>
+      <div class="row">
+        <label for="brightness">Brightness <output id="brightnessOut">100</output></label>
+        <input type="range" id="brightness" min="50" max="150" value="100">
+      </div>
+
+      <label class="check"><input type="checkbox" id="denoise" checked> Gentle denoise (smooths grain before sharpening)</label>
+
+      <h3>Output</h3>
+      <div class="row" style="margin-top:2px">
+        <label for="format">Format</label>
+        <select id="format">
+          <option value="image/png">PNG — best quality, larger file</option>
+          <option value="image/jpeg" selected>JPEG — photos, smaller file</option>
+          <option value="image/webp">WebP — modern, smallest file</option>
+        </select>
+      </div>
+      <div class="row" id="qualityRow">
+        <label for="quality">Quality <output id="qualityOut">92</output></label>
+        <input type="range" id="quality" min="60" max="100" value="92">
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" id="go" disabled>✨ Generate HD Image</button>
+        <button class="btn ghost" id="reset" type="button">Start over</button>
+      </div>
+      <div class="msg" id="workMsg" role="alert"></div>
+
+      <div id="result" style="display:none">
+        <h3>3 · Your HD image</h3>
+        <div class="preview" id="outPreview" style="display:block"><img id="outImg" alt="Your enhanced HD image"></div>
+        <div class="result-info" id="outInfo"></div>
+        <div class="actions">
+          <a class="btn lime" id="download" href="#" download="hd-image.jpg">⬇ Download HD Image</a>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="honest">
+    <strong>Honest note:</strong> this tool does smart enhancement — high-quality upscaling plus sharpening,
+    denoise and colour correction — and it does it entirely on your device. It cannot invent fine detail that
+    was never captured (true AI super-resolution needs a cloud AI service). For photos that start reasonably
+    sharp, the improvement is clearly visible, especially on screens and in print.
+  </div>
+
+  <p class="privacy">🔒 Private by design: your image never leaves your device — no uploads, no accounts, no tracking.</p>
+  <footer>HD Image Generator · v1.0 · Asif SaaS Studio</footer>
+</div>
+
+<script>
+"use strict";
+/* ================= PURE CORE (image maths — no DOM) ================= */
+/* PURE-CORE-START */
+function clamp255(v){ return v < 0 ? 0 : (v > 255 ? 255 : v); }
+
+// Per-pixel brightness / contrast / saturation. Values are percentages (100 = neutral).
+function adjustPixels(data, brightnessPct, contrastPct, saturationPct){
+  var b = (brightnessPct - 100) * 2.55;                 // -127.5 .. +127.5
+  var L = (contrastPct - 100) * 1.28;                   // -64 .. +64 over the 50..150 slider range
+  var contrastF = (259 * (L + 255)) / (255 * (259 - L)); // = 1 exactly at 100
+  var s = saturationPct / 100;
+  for (var i = 0; i < data.length; i += 4){
+    var r = data[i], g = data[i + 1], bl = data[i + 2];
+    // saturation (luma-based)
+    var lum = 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+    r = lum + (r - lum) * s;
+    g = lum + (g - lum) * s;
+    bl = lum + (bl - lum) * s;
+    // contrast then brightness
+    r = clamp255((r - 128) * contrastF + 128 + b);
+    g = clamp255((g - 128) * contrastF + 128 + b);
+    bl = clamp255((bl - 128) * contrastF + 128 + b);
+    data[i] = r; data[i + 1] = g; data[i + 2] = bl;
+  }
+  return data;
+}
+
+// 3x3 convolution; reads from a copy so edges don't feed back. Alpha untouched.
+function convolve3x3(src, dst, w, h, kernel, divisor){
+  for (var y = 0; y < h; y++){
+    for (var x = 0; x < w; x++){
+      var idx = (y * w + x) * 4;
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1){
+        dst[idx] = src[idx]; dst[idx + 1] = src[idx + 1]; dst[idx + 2] = src[idx + 2]; dst[idx + 3] = src[idx + 3];
+        continue;
+      }
+      var accR = 0, accG = 0, accB = 0, k = 0;
+      for (var ky = -1; ky <= 1; ky++){
+        for (var kx = -1; kx <= 1; kx++){
+          var p = ((y + ky) * w + (x + kx)) * 4, kv = kernel[k++];
+          accR += src[p] * kv; accG += src[p + 1] * kv; accB += src[p + 2] * kv;
+        }
+      }
+      dst[idx]     = clamp255(accR / divisor);
+      dst[idx + 1] = clamp255(accG / divisor);
+      dst[idx + 2] = clamp255(accB / divisor);
+      dst[idx + 3] = src[idx + 3];
+    }
+  }
+  return dst;
+}
+
+// Sharpen kernel for amount a (0..1): centre 1+4a, neighbours -a.
+function sharpenKernel(a){
+  return [0, -a, 0,  -a, 1 + 4 * a, -a,  0, -a, 0];
+}
+var GAUSS_KERNEL = [1, 2, 1,  2, 4, 2,  1, 2, 1]; // divisor 16
+
+// Effective output size for a source and requested scale, honouring caps.
+function effectiveSize(srcW, srcH, scale, maxSide, maxPixels){
+  var tw = Math.max(1, Math.round(srcW * scale));
+  var th = Math.max(1, Math.round(srcH * scale));
+  var capped = false;
+  if (tw * th > maxPixels){
+    var f = Math.sqrt(maxPixels / (tw * th));
+    tw = Math.max(1, Math.floor(tw * f)); th = Math.max(1, Math.floor(th * f)); capped = true;
+  }
+  if (tw > maxSide){ th = Math.max(1, Math.floor(th * maxSide / tw)); tw = maxSide; capped = true; }
+  if (th > maxSide){ tw = Math.max(1, Math.floor(tw * maxSide / th)); th = maxSide; capped = true; }
+  return { w: tw, h: th, capped: capped };
+}
+
+// File validation. Returns "" when valid, else a human-readable error.
+function validateFile(file){
+  if (!file) return "Please choose an image file first.";
+  var okTypes = ["image/png", "image/jpeg", "image/webp", "image/bmp", "image/gif"];
+  if (file.type === "image/svg+xml") return "SVG files are not supported — please use a PNG, JPEG, WebP, BMP or GIF image.";
+  if (okTypes.indexOf(file.type) === -1) return "That file is not a supported image. Please use PNG, JPEG, WebP, BMP or GIF.";
+  if (file.size === 0) return "That file appears to be empty. Please choose another image.";
+  if (file.size > 25 * 1024 * 1024) return "That image is larger than 25 MB. Please choose a smaller file.";
+  return "";
+}
+/* PURE-CORE-END */
+/* ================= APP ================= */
+var MAX_SIDE = 8000, MAX_PIXELS = 40000000, MAX_FILE = 25 * 1024 * 1024;
+
+var $ = function(id){ return document.getElementById(id); };
+var drop = $("drop"), fileInput = $("file"), inMsg = $("inMsg"), inMeta = $("inMeta"),
+    inPreview = $("inPreview"), inImg = $("inImg"), goBtn = $("go"), workMsg = $("workMsg"),
+    resultBox = $("result"), outImg = $("outImg"), outInfo = $("outInfo"), dl = $("download");
+
+var sourceBitmap = null, sourceW = 0, sourceH = 0, sourceName = "image", scale = 2, outUrl = null;
+
+function showMsg(el, text, kind){
+  el.textContent = text || "";
+  el.className = "msg" + (text ? " " + kind : "");
+}
+function fmtBytes(n){
+  if (n < 1024) return n + " B";
+  if (n < 1048576) return (n / 1024).toFixed(1) + " KB";
+  return (n / 1048576).toFixed(2) + " MB";
+}
+function revoke(url){ if (url) { try { URL.revokeObjectURL(url); } catch(e){} } }
+
+function setSource(file){
+  showMsg(inMsg, "", "");
+  var err = validateFile(file);
+  if (err){ showMsg(inMsg, err, "error"); goBtn.disabled = true; return; }
+  var url = URL.createObjectURL(file);
+  var probe = new Image();
+  probe.onload = function(){
+    sourceW = probe.naturalWidth; sourceH = probe.naturalHeight;
+    if (!sourceW || !sourceH){
+      showMsg(inMsg, "That image could not be read. It may be corrupt — please try another file.", "error");
+      revoke(url); return;
+    }
+    sourceBitmap = probe; sourceName = (file.name || "image").replace(/\.[^.]+$/, "");
+    inImg.src = url; inPreview.style.display = "block";
+    inMeta.innerHTML = "<strong>" + file.name + "</strong> · " + sourceW + " × " + sourceH +
+      " px · " + fmtBytes(file.size);
+    goBtn.disabled = false;
+    resultBox.style.display = "none";
+    showMsg(inMsg, "Image loaded. Adjust the settings, then tap “Generate HD Image”.", "ok");
+  };
+  probe.onerror = function(){
+    showMsg(inMsg, "That image could not be read. It may be corrupt — please try another file.", "error");
+    revoke(url);
+  };
+  probe.src = url;
+}
+
+/* Drop zone wiring */
+drop.addEventListener("click", function(){ fileInput.click(); });
+drop.addEventListener("keydown", function(e){ if (e.key === "Enter" || e.key === " "){ e.preventDefault(); fileInput.click(); } });
+fileInput.addEventListener("change", function(){ if (fileInput.files[0]) setSource(fileInput.files[0]); });
+["dragenter", "dragover"].forEach(function(ev){ drop.addEventListener(ev, function(e){ e.preventDefault(); drop.classList.add("dragover"); }); });
+["dragleave", "drop"].forEach(function(ev){ drop.addEventListener(ev, function(e){ e.preventDefault(); drop.classList.remove("dragover"); }); });
+drop.addEventListener("drop", function(e){
+  var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if (f) setSource(f);
+});
+
+/* Controls wiring */
+$("scaleSeg").addEventListener("click", function(e){
+  var btn = e.target.closest("button[data-scale]"); if (!btn) return;
+  scale = parseFloat(btn.getAttribute("data-scale"));
+  var labels = { "1": "1× Enhance", "2": "2× HD", "3": "3×", "4": "4× Ultra" };
+  $("scaleOut").textContent = labels[btn.getAttribute("data-scale")] || scale + "×";
+  this.querySelectorAll("button").forEach(function(b){ b.setAttribute("aria-pressed", b === btn ? "true" : "false"); });
+});
+[["sharpen", "sharpenOut"], ["contrast", "contrastOut"], ["saturation", "saturationOut"],
+ ["brightness", "brightnessOut"], ["quality", "qualityOut"]].forEach(function(pair){
+  $(pair[0]).addEventListener("input", function(){ $(pair[1]).textContent = this.value; });
+});
+$("format").addEventListener("change", function(){
+  $("qualityRow").style.display = (this.value === "image/png") ? "none" : "block";
+});
+$("reset").addEventListener("click", function(){
+  sourceBitmap = null; sourceW = sourceH = 0;
+  fileInput.value = ""; inImg.removeAttribute("src"); inPreview.style.display = "none";
+  inMeta.textContent = ""; resultBox.style.display = "none";
+  showMsg(inMsg, "", ""); showMsg(workMsg, "", "");
+  goBtn.disabled = true; revoke(outUrl); outUrl = null;
+});
+
+/* Processing */
+function drawProgressive(src, tw, th){
+  var cur = document.createElement("canvas");
+  cur.width = sourceW; cur.height = sourceH;
+  var cctx = cur.getContext("2d");
+  cctx.imageSmoothingEnabled = true; cctx.imageSmoothingQuality = "high";
+  cctx.drawImage(src, 0, 0);
+  while (cur.width < tw || cur.height < th){
+    var nw = Math.min(tw, Math.ceil(cur.width * 1.5));
+    var nh = Math.min(th, Math.ceil(cur.height * 1.5));
+    var nxt = document.createElement("canvas");
+    nxt.width = nw; nxt.height = nh;
+    var nctx = nxt.getContext("2d");
+    nctx.imageSmoothingEnabled = true; nctx.imageSmoothingQuality = "high";
+    nctx.drawImage(cur, 0, 0, nw, nh);
+    cur = nxt;
+  }
+  if (cur.width !== tw || cur.height !== th){
+    var fin = document.createElement("canvas");
+    fin.width = tw; fin.height = th;
+    var fctx = fin.getContext("2d");
+    fctx.imageSmoothingEnabled = true; fctx.imageSmoothingQuality = "high";
+    fctx.drawImage(cur, 0, 0, tw, th);
+    cur = fin;
+  }
+  return cur;
+}
+
+goBtn.addEventListener("click", function(){
+  if (!sourceBitmap){ showMsg(workMsg, "Choose an image first.", "error"); return; }
+  goBtn.disabled = true;
+  goBtn.innerHTML = "<span class='spinner'></span>Enhancing…";
+  showMsg(workMsg, "", "");
+  setTimeout(function(){
+    try {
+      var size = effectiveSize(sourceW, sourceH, scale, MAX_SIDE, MAX_PIXELS);
+      var canvas = drawProgressive(sourceBitmap, size.w, size.h);
+      var ctx = canvas.getContext("2d", { willReadFrequently: true });
+      var imgData = ctx.getImageData(0, 0, size.w, size.h);
+      var data = imgData.data;
+
+      if ($("denoise").checked){
+        var blurred = new Uint8ClampedArray(data);
+        convolve3x3(data, blurred, size.w, size.h, GAUSS_KERNEL, 16);
+        for (var i = 0; i < data.length; i += 4){
+          data[i]     = data[i]     * 0.65 + blurred[i]     * 0.35;
+          data[i + 1] = data[i + 1] * 0.65 + blurred[i + 1] * 0.35;
+          data[i + 2] = data[i + 2] * 0.65 + blurred[i + 2] * 0.35;
+        }
+      }
+      adjustPixels(data,
+        parseInt($("brightness").value, 10),
+        parseInt($("contrast").value, 10),
+        parseInt($("saturation").value, 10));
+
+      var sh = parseInt($("sharpen").value, 10) / 100;
+      if (sh > 0){
+        var srcCopy = new Uint8ClampedArray(data);
+        convolve3x3(srcCopy, data, size.w, size.h, sharpenKernel(sh * 0.9), 1);
+      }
+      ctx.putImageData(imgData, 0, 0);
+
+      var format = $("format").value;
+      var quality = parseInt($("quality").value, 10) / 100;
+      canvas.toBlob(function(blob){
+        goBtn.disabled = false; goBtn.textContent = "✨ Generate HD Image";
+        if (!blob){ showMsg(workMsg, "Something went wrong creating the image. Please try a smaller upscale.", "error"); return; }
+        revoke(outUrl); outUrl = URL.createObjectURL(blob);
+        outImg.src = outUrl;
+        var ext = format === "image/png" ? "png" : (format === "image/webp" ? "webp" : "jpg");
+        dl.href = outUrl; dl.setAttribute("download", sourceName + "-HD." + ext);
+        outInfo.innerHTML = "<strong>" + size.w + " × " + size.h + " px</strong> · " + fmtBytes(blob.size) +
+          " · " + ext.toUpperCase() + " · from " + sourceW + " × " + sourceH + " px";
+        resultBox.style.display = "block";
+        if (size.capped){
+          showMsg(workMsg, "Note: output was capped at safe browser limits (" + size.w + " × " + size.h +
+            " px) — very large images can exhaust browser memory.", "note");
+        }
+        resultBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }, format, quality);
+    } catch (err){
+      goBtn.disabled = false; goBtn.textContent = "✨ Generate HD Image";
+      showMsg(workMsg, "Processing failed — the image may be too large for this device. Try a lower upscale factor.", "error");
+    }
+  }, 30);
+});
+</script>
+</body>
+</html>
